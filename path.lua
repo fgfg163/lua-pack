@@ -1,5 +1,4 @@
 local path = {}
-path.separator = string.find(package.path, '/') and '/' or '\\'
 path.basename = function(thePath)
   thePath = string.gsub(thePath, '\\', '/')
   thePath = string.gsub(thePath, '//+', '/')
@@ -12,7 +11,7 @@ path.dirname = function(thePath)
   thePath = string.gsub(thePath, '//+', '/')
   local thePathArray = string.split(thePath, '/')
   table.remove(thePathArray)
-  return table.concat(thePathArray, path.separator)
+  return table.concat(thePathArray, '/')
 end
 path.extname = function()
 end
@@ -43,7 +42,7 @@ path.join = function(...)
       end
     end
   end
-  return table.concat(resultPathArray, path.separator)
+  return table.concat(resultPathArray, '/')
 end
 path.relative = function()
 end
@@ -72,6 +71,6 @@ path.resolve = function(...)
       end
     end
   end
-  return table.concat(resultPathArray, path.separator)
+  return table.concat(resultPathArray, '/')
 end
 return path
