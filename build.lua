@@ -1,20 +1,875 @@
 do
-package.preload["index"] = load("require 'string-split'\nlocal json = require 'json'\nlocal path = require 'path'\nconsole = require 'console'\nlocal program = require 'commander'\n\nprogram.option('-e, --entry', 'main.lua')\nprogram.option('-o, --output', 'main-min.lua')\nprogram.option('-sm, --source-code-mode', false)\nprogram.parse(arg)\nlocal loadedList = {}\nlocal preloadList = {}\n\nlocal outputFile, err = io.open(program.params.output, 'w')\nif err then\n  console.log(err)\n  if outputFile then\n    outputFile:close()\n  end\n  os.exit()\nend\noutputFile:close()\n\nlocal function readFileToTable(file)\n  local result = {}\n  for i = 0, math.huge do\n    local line = file:read('*line')\n    table.insert(result, line)\n    if line == nil then\n      break\n    end\n  end\n  return result\nend\n\nlocal entryFile, err = io.open(program.params.entry, 'r')\nif err then\n  console.log(err)\n  if file then\n    entryFile:close()\n  end\n  os.exit()\nend\nlocal entryData = entryFile:read('*all')\nentryFile:close()\ntable.insert(preloadList, program.params.entry)\npreloadList[program.params.entry] = program.params.entry\n\nwhile #preloadList > 0 do\n  local preloadPath = preloadList[1]\n  local preloadPathName = preloadPath:gsub('.lua$', '')\n  table.remove(preloadList, 1)\n  local entryFile, err = io.open(preloadPath, 'r')\n  if not err then\n    console.log('build file: ' .. preloadPath)\n    local requireTable = readFileToTable(entryFile)\n    local requireSource = table.concat(requireTable, '\\n')\n    if program.params['source-code-mode'] then\n      if type(program.params['source-code-mode']) == 'string' then\n        requireSource = 'do\\npackage[' .. json.encode(program['source-code-mode']) .. '][\"' .. preloadPathName .. '\"] = { path = \"' .. preloadPath .. '\", source = ' .. json.encode(requireSource) .. ' }' .. '\\nend'\n      else\n        requireSource = 'do\\npackage.sourceCode[\"' .. preloadPathName .. '\"] = { path = \"' .. preloadPath .. '\", source = ' .. json.encode(requireSource) .. ' }' .. '\\nend'\n      end\n    else\n      requireSource = 'do\\npackage.preload[\"' .. preloadPathName .. '\"] = load(' .. json.encode(requireSource) .. ',\"@' .. preloadPath .. '\", \"bt\", _ENV)' .. '\\nend'\n    end\n    table.insert(loadedList, requireSource)\n\n    -- 寻找文件require的内容\n    for k, v in ipairs(requireTable) do\n      for value in v:gmatch('require%s*%(?[\"\\']([%w-_./\\\\]+)[\"\\']%)?') do\n        local subRequirePath = value\n        if not value:match('.lua$') then\n          subRequirePath = subRequirePath .. '.lua'\n        end\n        if not preloadList[subRequirePath] then\n          table.insert(preloadList, subRequirePath)\n          preloadList[subRequirePath] = subRequirePath\n        end\n      end\n    end\n  else\n    console.log(err)\n  end\n  if entryFile then\n    entryFile:close()\n  end\nend\n\nlocal outputFile, err = io.open(program.params.output, 'w')\nif err then\n  console.log(err)\n  if outputFile then\n    outputFile:close()\n  end\n  os.exit()\nend\n\n\nif program.params['source-code-mode'] then\n  if type(program.params['source-code-mode']) == 'string' then\n    outputFile:write('do\\npackage[\"' .. program.params['source-code-mode'] .. '\"] = {}\\nend\\n')\n  else\n    outputFile:write('do\\npackage.sourceCode = {}\\nend\\n')\n  end\nend\nfor k, v in ipairs(loadedList) do\n  outputFile:write(v)\n  outputFile:write('\\n')\nend\noutputFile:write('\\nrequire(\"' .. program.params.entry:gsub('.lua$', '') .. '\")\\n')\noutputFile:close()","@index.lua", "bt", _ENV)
+package.preload["index"] = load("require 'string-split'\
+local json = require 'json'\
+local path = require 'path'\
+console = require 'console'\
+local program = require 'commander'\
+\
+program.option('-e, --entry', 'main.lua')\
+program.option('-o, --output', 'main-min.lua')\
+program.option('-sm, --source-code-mode', false)\
+program.parse(arg)\
+local loadedList = {}\
+local preloadList = {}\
+\
+local outputFile, err = io.open(program.params.output, 'w')\
+if err then\
+  console.log(err)\
+  if outputFile then\
+    outputFile:close()\
+  end\
+  os.exit()\
+end\
+outputFile:close()\
+\
+local function readFileToTable(file)\
+  local result = {}\
+  for i = 0, math.huge do\
+    local line = file:read('*line')\
+    table.insert(result, line)\
+    if line == nil then\
+      break\
+    end\
+  end\
+  return result\
+end\
+\
+local entryFile, err = io.open(program.params.entry, 'r')\
+if err then\
+  console.log(err)\
+  if file then\
+    entryFile:close()\
+  end\
+  os.exit()\
+end\
+local entryData = entryFile:read('*all')\
+entryFile:close()\
+table.insert(preloadList, program.params.entry)\
+preloadList[program.params.entry] = program.params.entry\
+\
+while #preloadList > 0 do\
+  local preloadPath = preloadList[1]\
+  local preloadPathName = preloadPath:gsub('%.lua$', '')\
+  table.remove(preloadList, 1)\
+  local entryFile, err = io.open(preloadPath, 'r')\
+  if not err then\
+    console.log('build file: ' .. preloadPath)\
+    local requireTable = readFileToTable(entryFile)\
+    local requireSource = table.concat(requireTable, '\\n')\
+    if program.params['source-code-mode'] then\
+      if type(program.params['source-code-mode']) == 'string' then\
+        requireSource = 'do\\npackage[' .. json.encode(program['source-code-mode']) .. '][' .. json.encode(preloadPath) .. '] = { path = ' .. json.encode(preloadPath) .. ', source = ' .. ('%q'):format(requireSource) .. ' }' .. '\\nend'\
+      else\
+        requireSource = 'do\\npackage.sourceCode[' .. json.encode(preloadPath) .. '] = { path = ' .. json.encode(preloadPath) .. ', source = ' .. ('%q'):format(requireSource) .. ' }' .. '\\nend'\
+      end\
+    else\
+      requireSource = 'do\\npackage.preload[\"' .. preloadPathName .. '\"] = load(' .. ('%q'):format(requireSource) .. ',\"@' .. preloadPath .. '\")' .. '\\nend'\
+    end\
+    table.insert(loadedList, requireSource)\
+\
+    local dirName = path.dirname(preloadPathName)\
+    -- 寻找文件require的内容\
+    for k, v in ipairs(requireTable) do\
+      for value in v:gmatch('require%s*%(?[\"\\']([%w-_%./\\\\]+)[\"\\']%)?') do\
+        local subRequirePath = value\
+        if not value:match('%.lua$') then\
+          subRequirePath = subRequirePath .. '.lua'\
+        end\
+        if subRequirePath:match('^%.%/') or subRequirePath:match('^%.%.%/') or subRequirePath:match('^%/') then\
+          local subRequireAbsolutePath = path.resolve(dirName, subRequirePath)\
+          if not preloadList[subRequireAbsolutePath] then\
+            table.insert(preloadList, subRequireAbsolutePath)\
+            preloadList[subRequireAbsolutePath] = subRequireAbsolutePath\
+          end\
+        else\
+          if not preloadList[subRequirePath] then\
+            table.insert(preloadList, subRequirePath)\
+            preloadList[subRequirePath] = subRequirePath\
+          end\
+        end\
+      end\
+    end\
+  else\
+    console.log(err)\
+  end\
+  if entryFile then\
+    entryFile:close()\
+  end\
+end\
+\
+local outputFile, err = io.open(program.params.output, 'w')\
+if err then\
+  console.log(err)\
+  if outputFile then\
+    outputFile:close()\
+  end\
+  os.exit()\
+end\
+\
+\
+if program.params['source-code-mode'] then\
+  if type(program.params['source-code-mode']) == 'string' then\
+    outputFile:write('do\\npackage[\"' .. program.params['source-code-mode'] .. '\"] = {}\\nend\\n')\
+  else\
+    outputFile:write('do\\npackage.sourceCode = {}\\nend\\n')\
+  end\
+end\
+for k, v in ipairs(loadedList) do\
+  outputFile:write(v)\
+  outputFile:write('\\n')\
+end\
+outputFile:write('\\nrequire(\"' .. program.params.entry:gsub('%.lua$', '') .. '\")\\n')\
+outputFile:close()","@index.lua")
 end
 do
-package.preload["string-split"] = load("-- 字符串分割\n-- 防止有人覆盖 string 方法\nlocal myString = {}\nlocal tmpString = {}\nfor key, value in pairs(string) do\n  tmpString[key] = value\nend\ntmpString.split = myString.split or function(str, d)\n  if str == '' and d ~= '' then\n    return { str }\n  elseif str ~= '' and d == '' then\n    local lst = {}\n    for key = 1, tmpString.len(str) do\n      table.insert(lst, tmpString.sub(str, key, 1))\n    end\n    return lst\n  else\n    local lst = {}\n    local n = tmpString.len(str) --长度\n    local start = 1\n    while start <= n do\n      local i = tmpString.find(str, d, start) -- find 'next' 0\n      if i == nil then\n        table.insert(lst, tmpString.sub(str, start, n))\n        break\n      end\n      table.insert(lst, tmpString.sub(str, start, i - 1))\n      if i == n then\n        table.insert(lst, '')\n        break\n      end\n      start = i + 1\n    end\n    return lst\n  end\nend\nfor key, value in pairs(tmpString) do\n  string[key] = string[key] or value\nend\nreturn myString","@string-split.lua", "bt", _ENV)
+package.preload["string-split"] = load("-- 字符串分割\
+-- 防止有人覆盖 string 方法\
+local myString = {}\
+local tmpString = {}\
+for key, value in pairs(string) do\
+  tmpString[key] = value\
+end\
+tmpString.split = myString.split or function(str, d)\
+  if str == '' and d ~= '' then\
+    return { str }\
+  elseif str ~= '' and d == '' then\
+    local lst = {}\
+    for key = 1, tmpString.len(str) do\
+      table.insert(lst, tmpString.sub(str, key, 1))\
+    end\
+    return lst\
+  else\
+    local lst = {}\
+    local n = tmpString.len(str) --长度\
+    local start = 1\
+    while start <= n do\
+      local i = tmpString.find(str, d, start) -- find 'next' 0\
+      if i == nil then\
+        table.insert(lst, tmpString.sub(str, start, n))\
+        break\
+      end\
+      table.insert(lst, tmpString.sub(str, start, i - 1))\
+      if i == n then\
+        table.insert(lst, '')\
+        break\
+      end\
+      start = i + 1\
+    end\
+    return lst\
+  end\
+end\
+for key, value in pairs(tmpString) do\
+  string[key] = string[key] or value\
+end\
+return myString","@string-split.lua")
 end
 do
-package.preload["json"] = load("--\n-- json.lua\n--\n-- Copyright (c) 2018 rxi\n--\n-- Permission is hereby granted, free of charge, to any person obtaining a copy of\n-- this software and associated documentation files (the \"Software\"), to deal in\n-- the Software without restriction, including without limitation the rights to\n-- use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies\n-- of the Software, and to permit persons to whom the Software is furnished to do\n-- so, subject to the following conditions:\n--\n-- The above copyright notice and this permission notice shall be included in all\n-- copies or substantial portions of the Software.\n--\n-- THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n-- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n-- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n-- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n-- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n-- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n-- SOFTWARE.\n--\n\nlocal json = { _version = \"0.1.1\" }\n\n-------------------------------------------------------------------------------\n-- Encode\n-------------------------------------------------------------------------------\n\nlocal encode\n\nlocal escape_char_map = {\n  [ \"\\\\\" ] = \"\\\\\\\\\",\n  [ \"\\\"\" ] = \"\\\\\\\"\",\n  [ \"\\b\" ] = \"\\\\b\",\n  [ \"\\f\" ] = \"\\\\f\",\n  [ \"\\n\" ] = \"\\\\n\",\n  [ \"\\r\" ] = \"\\\\r\",\n  [ \"\\t\" ] = \"\\\\t\",\n}\n\nlocal escape_char_map_inv = { [ \"\\\\/\" ] = \"/\" }\nfor k, v in pairs(escape_char_map) do\n  escape_char_map_inv[v] = k\nend\n\n\nlocal function escape_char(c)\n  return escape_char_map[c] or string.format(\"\\\\u%04x\", c:byte())\nend\n\n\nlocal function encode_nil(val)\n  return \"null\"\nend\n\n\nlocal function encode_table(val, stack)\n  local res = {}\n  stack = stack or {}\n\n  -- Circular reference?\n  if stack[val] then error(\"circular reference\") end\n\n  stack[val] = true\n\n  if val[1] ~= nil or next(val) == nil then\n    -- Treat as array -- check keys are valid and it is not sparse\n    local n = 0\n    for k in pairs(val) do\n      if type(k) ~= \"number\" then\n        error(\"invalid table: mixed or invalid key types\")\n      end\n      n = n + 1\n    end\n    if n ~= #val then\n      error(\"invalid table: sparse array\")\n    end\n    -- Encode\n    for i, v in ipairs(val) do\n      table.insert(res, encode(v, stack))\n    end\n    stack[val] = nil\n    return \"[\" .. table.concat(res, \",\") .. \"]\"\n\n  else\n    -- Treat as an object\n    for k, v in pairs(val) do\n      if type(k) ~= \"string\" then\n        error(\"invalid table: mixed or invalid key types\")\n      end\n      table.insert(res, encode(k, stack) .. \":\" .. encode(v, stack))\n    end\n    stack[val] = nil\n    return \"{\" .. table.concat(res, \",\") .. \"}\"\n  end\nend\n\n\nlocal function encode_string(val)\n  return '\"' .. val:gsub('[%z\\1-\\31\\\\\"]', escape_char) .. '\"'\nend\n\n\nlocal function encode_number(val)\n  -- Check for NaN, -inf and inf\n  if val ~= val or val <= -math.huge or val >= math.huge then\n    error(\"unexpected number value '\" .. tostring(val) .. \"'\")\n  end\n  return string.format(\"%.14g\", val)\nend\n\n\nlocal type_func_map = {\n  [ \"nil\"     ] = encode_nil,\n  [ \"table\"   ] = encode_table,\n  [ \"string\"  ] = encode_string,\n  [ \"number\"  ] = encode_number,\n  [ \"boolean\" ] = tostring,\n}\n\n\nencode = function(val, stack)\n  local t = type(val)\n  local f = type_func_map[t]\n  if f then\n    return f(val, stack)\n  end\n  error(\"unexpected type '\" .. t .. \"'\")\nend\n\n\nfunction json.encode(val)\n  return ( encode(val) )\nend\n\n\n-------------------------------------------------------------------------------\n-- Decode\n-------------------------------------------------------------------------------\n\nlocal parse\n\nlocal function create_set(...)\n  local res = {}\n  for i = 1, select(\"#\", ...) do\n    res[ select(i, ...) ] = true\n  end\n  return res\nend\n\nlocal space_chars   = create_set(\" \", \"\\t\", \"\\r\", \"\\n\")\nlocal delim_chars   = create_set(\" \", \"\\t\", \"\\r\", \"\\n\", \"]\", \"}\", \",\")\nlocal escape_chars  = create_set(\"\\\\\", \"/\", '\"', \"b\", \"f\", \"n\", \"r\", \"t\", \"u\")\nlocal literals      = create_set(\"true\", \"false\", \"null\")\n\nlocal literal_map = {\n  [ \"true\"  ] = true,\n  [ \"false\" ] = false,\n  [ \"null\"  ] = nil,\n}\n\n\nlocal function next_char(str, idx, set, negate)\n  for i = idx, #str do\n    if set[str:sub(i, i)] ~= negate then\n      return i\n    end\n  end\n  return #str + 1\nend\n\n\nlocal function decode_error(str, idx, msg)\n  local line_count = 1\n  local col_count = 1\n  for i = 1, idx - 1 do\n    col_count = col_count + 1\n    if str:sub(i, i) == \"\\n\" then\n      line_count = line_count + 1\n      col_count = 1\n    end\n  end\n  error( string.format(\"%s at line %d col %d\", msg, line_count, col_count) )\nend\n\n\nlocal function codepoint_to_utf8(n)\n  -- http://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=iws-appendixa\n  local f = math.floor\n  if n <= 0x7f then\n    return string.char(n)\n  elseif n <= 0x7ff then\n    return string.char(f(n / 64) + 192, n % 64 + 128)\n  elseif n <= 0xffff then\n    return string.char(f(n / 4096) + 224, f(n % 4096 / 64) + 128, n % 64 + 128)\n  elseif n <= 0x10ffff then\n    return string.char(f(n / 262144) + 240, f(n % 262144 / 4096) + 128,\n                       f(n % 4096 / 64) + 128, n % 64 + 128)\n  end\n  error( string.format(\"invalid unicode codepoint '%x'\", n) )\nend\n\n\nlocal function parse_unicode_escape(s)\n  local n1 = tonumber( s:sub(3, 6),  16 )\n  local n2 = tonumber( s:sub(9, 12), 16 )\n  -- Surrogate pair?\n  if n2 then\n    return codepoint_to_utf8((n1 - 0xd800) * 0x400 + (n2 - 0xdc00) + 0x10000)\n  else\n    return codepoint_to_utf8(n1)\n  end\nend\n\n\nlocal function parse_string(str, i)\n  local has_unicode_escape = false\n  local has_surrogate_escape = false\n  local has_escape = false\n  local last\n  for j = i + 1, #str do\n    local x = str:byte(j)\n\n    if x < 32 then\n      decode_error(str, j, \"control character in string\")\n    end\n\n    if last == 92 then -- \"\\\\\" (escape char)\n      if x == 117 then -- \"u\" (unicode escape sequence)\n        local hex = str:sub(j + 1, j + 5)\n        if not hex:find(\"%x%x%x%x\") then\n          decode_error(str, j, \"invalid unicode escape in string\")\n        end\n        if hex:find(\"^[dD][89aAbB]\") then\n          has_surrogate_escape = true\n        else\n          has_unicode_escape = true\n        end\n      else\n        local c = string.char(x)\n        if not escape_chars[c] then\n          decode_error(str, j, \"invalid escape char '\" .. c .. \"' in string\")\n        end\n        has_escape = true\n      end\n      last = nil\n\n    elseif x == 34 then -- '\"' (end of string)\n      local s = str:sub(i + 1, j - 1)\n      if has_surrogate_escape then\n        s = s:gsub(\"\\\\u[dD][89aAbB]..\\\\u....\", parse_unicode_escape)\n      end\n      if has_unicode_escape then\n        s = s:gsub(\"\\\\u....\", parse_unicode_escape)\n      end\n      if has_escape then\n        s = s:gsub(\"\\\\.\", escape_char_map_inv)\n      end\n      return s, j + 1\n\n    else\n      last = x\n    end\n  end\n  decode_error(str, i, \"expected closing quote for string\")\nend\n\n\nlocal function parse_number(str, i)\n  local x = next_char(str, i, delim_chars)\n  local s = str:sub(i, x - 1)\n  local n = tonumber(s)\n  if not n then\n    decode_error(str, i, \"invalid number '\" .. s .. \"'\")\n  end\n  return n, x\nend\n\n\nlocal function parse_literal(str, i)\n  local x = next_char(str, i, delim_chars)\n  local word = str:sub(i, x - 1)\n  if not literals[word] then\n    decode_error(str, i, \"invalid literal '\" .. word .. \"'\")\n  end\n  return literal_map[word], x\nend\n\n\nlocal function parse_array(str, i)\n  local res = {}\n  local n = 1\n  i = i + 1\n  while 1 do\n    local x\n    i = next_char(str, i, space_chars, true)\n    -- Empty / end of array?\n    if str:sub(i, i) == \"]\" then\n      i = i + 1\n      break\n    end\n    -- Read token\n    x, i = parse(str, i)\n    res[n] = x\n    n = n + 1\n    -- Next token\n    i = next_char(str, i, space_chars, true)\n    local chr = str:sub(i, i)\n    i = i + 1\n    if chr == \"]\" then break end\n    if chr ~= \",\" then decode_error(str, i, \"expected ']' or ','\") end\n  end\n  return res, i\nend\n\n\nlocal function parse_object(str, i)\n  local res = {}\n  i = i + 1\n  while 1 do\n    local key, val\n    i = next_char(str, i, space_chars, true)\n    -- Empty / end of object?\n    if str:sub(i, i) == \"}\" then\n      i = i + 1\n      break\n    end\n    -- Read key\n    if str:sub(i, i) ~= '\"' then\n      decode_error(str, i, \"expected string for key\")\n    end\n    key, i = parse(str, i)\n    -- Read ':' delimiter\n    i = next_char(str, i, space_chars, true)\n    if str:sub(i, i) ~= \":\" then\n      decode_error(str, i, \"expected ':' after key\")\n    end\n    i = next_char(str, i + 1, space_chars, true)\n    -- Read value\n    val, i = parse(str, i)\n    -- Set\n    res[key] = val\n    -- Next token\n    i = next_char(str, i, space_chars, true)\n    local chr = str:sub(i, i)\n    i = i + 1\n    if chr == \"}\" then break end\n    if chr ~= \",\" then decode_error(str, i, \"expected '}' or ','\") end\n  end\n  return res, i\nend\n\n\nlocal char_func_map = {\n  [ '\"' ] = parse_string,\n  [ \"0\" ] = parse_number,\n  [ \"1\" ] = parse_number,\n  [ \"2\" ] = parse_number,\n  [ \"3\" ] = parse_number,\n  [ \"4\" ] = parse_number,\n  [ \"5\" ] = parse_number,\n  [ \"6\" ] = parse_number,\n  [ \"7\" ] = parse_number,\n  [ \"8\" ] = parse_number,\n  [ \"9\" ] = parse_number,\n  [ \"-\" ] = parse_number,\n  [ \"t\" ] = parse_literal,\n  [ \"f\" ] = parse_literal,\n  [ \"n\" ] = parse_literal,\n  [ \"[\" ] = parse_array,\n  [ \"{\" ] = parse_object,\n}\n\n\nparse = function(str, idx)\n  local chr = str:sub(idx, idx)\n  local f = char_func_map[chr]\n  if f then\n    return f(str, idx)\n  end\n  decode_error(str, idx, \"unexpected character '\" .. chr .. \"'\")\nend\n\n\nfunction json.decode(str)\n  if type(str) ~= \"string\" then\n    error(\"expected argument of type string, got \" .. type(str))\n  end\n  local res, idx = parse(str, next_char(str, 1, space_chars, true))\n  idx = next_char(str, idx, space_chars, true)\n  if idx <= #str then\n    decode_error(str, idx, \"trailing garbage\")\n  end\n  return res\nend\n\n\nreturn json","@json.lua", "bt", _ENV)
+package.preload["json"] = load("--\
+-- json.lua\
+--\
+-- Copyright (c) 2018 rxi\
+--\
+-- Permission is hereby granted, free of charge, to any person obtaining a copy of\
+-- this software and associated documentation files (the \"Software\"), to deal in\
+-- the Software without restriction, including without limitation the rights to\
+-- use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies\
+-- of the Software, and to permit persons to whom the Software is furnished to do\
+-- so, subject to the following conditions:\
+--\
+-- The above copyright notice and this permission notice shall be included in all\
+-- copies or substantial portions of the Software.\
+--\
+-- THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\
+-- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\
+-- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\
+-- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\
+-- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\
+-- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\
+-- SOFTWARE.\
+--\
+\
+local json = { _version = \"0.1.1\" }\
+\
+-------------------------------------------------------------------------------\
+-- Encode\
+-------------------------------------------------------------------------------\
+\
+local encode\
+\
+local escape_char_map = {\
+  [ \"\\\\\" ] = \"\\\\\\\\\",\
+  [ \"\\\"\" ] = \"\\\\\\\"\",\
+  [ \"\\b\" ] = \"\\\\b\",\
+  [ \"\\f\" ] = \"\\\\f\",\
+  [ \"\\n\" ] = \"\\\\n\",\
+  [ \"\\r\" ] = \"\\\\r\",\
+  [ \"\\t\" ] = \"\\\\t\",\
+}\
+\
+local escape_char_map_inv = { [ \"\\\\/\" ] = \"/\" }\
+for k, v in pairs(escape_char_map) do\
+  escape_char_map_inv[v] = k\
+end\
+\
+\
+local function escape_char(c)\
+  return escape_char_map[c] or string.format(\"\\\\u%04x\", c:byte())\
+end\
+\
+\
+local function encode_nil(val)\
+  return \"null\"\
+end\
+\
+\
+local function encode_table(val, stack)\
+  local res = {}\
+  stack = stack or {}\
+\
+  -- Circular reference?\
+  if stack[val] then error(\"circular reference\") end\
+\
+  stack[val] = true\
+\
+  if val[1] ~= nil or next(val) == nil then\
+    -- Treat as array -- check keys are valid and it is not sparse\
+    local n = 0\
+    for k in pairs(val) do\
+      if type(k) ~= \"number\" then\
+        error(\"invalid table: mixed or invalid key types\")\
+      end\
+      n = n + 1\
+    end\
+    if n ~= #val then\
+      error(\"invalid table: sparse array\")\
+    end\
+    -- Encode\
+    for i, v in ipairs(val) do\
+      table.insert(res, encode(v, stack))\
+    end\
+    stack[val] = nil\
+    return \"[\" .. table.concat(res, \",\") .. \"]\"\
+\
+  else\
+    -- Treat as an object\
+    for k, v in pairs(val) do\
+      if type(k) ~= \"string\" then\
+        error(\"invalid table: mixed or invalid key types\")\
+      end\
+      table.insert(res, encode(k, stack) .. \":\" .. encode(v, stack))\
+    end\
+    stack[val] = nil\
+    return \"{\" .. table.concat(res, \",\") .. \"}\"\
+  end\
+end\
+\
+\
+local function encode_string(val)\
+  return '\"' .. val:gsub('[%z\\1-\\31\\\\\"]', escape_char) .. '\"'\
+end\
+\
+\
+local function encode_number(val)\
+  -- Check for NaN, -inf and inf\
+  if val ~= val or val <= -math.huge or val >= math.huge then\
+    error(\"unexpected number value '\" .. tostring(val) .. \"'\")\
+  end\
+  return string.format(\"%.14g\", val)\
+end\
+\
+\
+local type_func_map = {\
+  [ \"nil\"     ] = encode_nil,\
+  [ \"table\"   ] = encode_table,\
+  [ \"string\"  ] = encode_string,\
+  [ \"number\"  ] = encode_number,\
+  [ \"boolean\" ] = tostring,\
+}\
+\
+\
+encode = function(val, stack)\
+  local t = type(val)\
+  local f = type_func_map[t]\
+  if f then\
+    return f(val, stack)\
+  end\
+  error(\"unexpected type '\" .. t .. \"'\")\
+end\
+\
+\
+function json.encode(val)\
+  return ( encode(val) )\
+end\
+\
+\
+-------------------------------------------------------------------------------\
+-- Decode\
+-------------------------------------------------------------------------------\
+\
+local parse\
+\
+local function create_set(...)\
+  local res = {}\
+  for i = 1, select(\"#\", ...) do\
+    res[ select(i, ...) ] = true\
+  end\
+  return res\
+end\
+\
+local space_chars   = create_set(\" \", \"\\t\", \"\\r\", \"\\n\")\
+local delim_chars   = create_set(\" \", \"\\t\", \"\\r\", \"\\n\", \"]\", \"}\", \",\")\
+local escape_chars  = create_set(\"\\\\\", \"/\", '\"', \"b\", \"f\", \"n\", \"r\", \"t\", \"u\")\
+local literals      = create_set(\"true\", \"false\", \"null\")\
+\
+local literal_map = {\
+  [ \"true\"  ] = true,\
+  [ \"false\" ] = false,\
+  [ \"null\"  ] = nil,\
+}\
+\
+\
+local function next_char(str, idx, set, negate)\
+  for i = idx, #str do\
+    if set[str:sub(i, i)] ~= negate then\
+      return i\
+    end\
+  end\
+  return #str + 1\
+end\
+\
+\
+local function decode_error(str, idx, msg)\
+  local line_count = 1\
+  local col_count = 1\
+  for i = 1, idx - 1 do\
+    col_count = col_count + 1\
+    if str:sub(i, i) == \"\\n\" then\
+      line_count = line_count + 1\
+      col_count = 1\
+    end\
+  end\
+  error( string.format(\"%s at line %d col %d\", msg, line_count, col_count) )\
+end\
+\
+\
+local function codepoint_to_utf8(n)\
+  -- http://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=iws-appendixa\
+  local f = math.floor\
+  if n <= 0x7f then\
+    return string.char(n)\
+  elseif n <= 0x7ff then\
+    return string.char(f(n / 64) + 192, n % 64 + 128)\
+  elseif n <= 0xffff then\
+    return string.char(f(n / 4096) + 224, f(n % 4096 / 64) + 128, n % 64 + 128)\
+  elseif n <= 0x10ffff then\
+    return string.char(f(n / 262144) + 240, f(n % 262144 / 4096) + 128,\
+                       f(n % 4096 / 64) + 128, n % 64 + 128)\
+  end\
+  error( string.format(\"invalid unicode codepoint '%x'\", n) )\
+end\
+\
+\
+local function parse_unicode_escape(s)\
+  local n1 = tonumber( s:sub(3, 6),  16 )\
+  local n2 = tonumber( s:sub(9, 12), 16 )\
+  -- Surrogate pair?\
+  if n2 then\
+    return codepoint_to_utf8((n1 - 0xd800) * 0x400 + (n2 - 0xdc00) + 0x10000)\
+  else\
+    return codepoint_to_utf8(n1)\
+  end\
+end\
+\
+\
+local function parse_string(str, i)\
+  local has_unicode_escape = false\
+  local has_surrogate_escape = false\
+  local has_escape = false\
+  local last\
+  for j = i + 1, #str do\
+    local x = str:byte(j)\
+\
+    if x < 32 then\
+      decode_error(str, j, \"control character in string\")\
+    end\
+\
+    if last == 92 then -- \"\\\\\" (escape char)\
+      if x == 117 then -- \"u\" (unicode escape sequence)\
+        local hex = str:sub(j + 1, j + 5)\
+        if not hex:find(\"%x%x%x%x\") then\
+          decode_error(str, j, \"invalid unicode escape in string\")\
+        end\
+        if hex:find(\"^[dD][89aAbB]\") then\
+          has_surrogate_escape = true\
+        else\
+          has_unicode_escape = true\
+        end\
+      else\
+        local c = string.char(x)\
+        if not escape_chars[c] then\
+          decode_error(str, j, \"invalid escape char '\" .. c .. \"' in string\")\
+        end\
+        has_escape = true\
+      end\
+      last = nil\
+\
+    elseif x == 34 then -- '\"' (end of string)\
+      local s = str:sub(i + 1, j - 1)\
+      if has_surrogate_escape then\
+        s = s:gsub(\"\\\\u[dD][89aAbB]..\\\\u....\", parse_unicode_escape)\
+      end\
+      if has_unicode_escape then\
+        s = s:gsub(\"\\\\u....\", parse_unicode_escape)\
+      end\
+      if has_escape then\
+        s = s:gsub(\"\\\\.\", escape_char_map_inv)\
+      end\
+      return s, j + 1\
+\
+    else\
+      last = x\
+    end\
+  end\
+  decode_error(str, i, \"expected closing quote for string\")\
+end\
+\
+\
+local function parse_number(str, i)\
+  local x = next_char(str, i, delim_chars)\
+  local s = str:sub(i, x - 1)\
+  local n = tonumber(s)\
+  if not n then\
+    decode_error(str, i, \"invalid number '\" .. s .. \"'\")\
+  end\
+  return n, x\
+end\
+\
+\
+local function parse_literal(str, i)\
+  local x = next_char(str, i, delim_chars)\
+  local word = str:sub(i, x - 1)\
+  if not literals[word] then\
+    decode_error(str, i, \"invalid literal '\" .. word .. \"'\")\
+  end\
+  return literal_map[word], x\
+end\
+\
+\
+local function parse_array(str, i)\
+  local res = {}\
+  local n = 1\
+  i = i + 1\
+  while 1 do\
+    local x\
+    i = next_char(str, i, space_chars, true)\
+    -- Empty / end of array?\
+    if str:sub(i, i) == \"]\" then\
+      i = i + 1\
+      break\
+    end\
+    -- Read token\
+    x, i = parse(str, i)\
+    res[n] = x\
+    n = n + 1\
+    -- Next token\
+    i = next_char(str, i, space_chars, true)\
+    local chr = str:sub(i, i)\
+    i = i + 1\
+    if chr == \"]\" then break end\
+    if chr ~= \",\" then decode_error(str, i, \"expected ']' or ','\") end\
+  end\
+  return res, i\
+end\
+\
+\
+local function parse_object(str, i)\
+  local res = {}\
+  i = i + 1\
+  while 1 do\
+    local key, val\
+    i = next_char(str, i, space_chars, true)\
+    -- Empty / end of object?\
+    if str:sub(i, i) == \"}\" then\
+      i = i + 1\
+      break\
+    end\
+    -- Read key\
+    if str:sub(i, i) ~= '\"' then\
+      decode_error(str, i, \"expected string for key\")\
+    end\
+    key, i = parse(str, i)\
+    -- Read ':' delimiter\
+    i = next_char(str, i, space_chars, true)\
+    if str:sub(i, i) ~= \":\" then\
+      decode_error(str, i, \"expected ':' after key\")\
+    end\
+    i = next_char(str, i + 1, space_chars, true)\
+    -- Read value\
+    val, i = parse(str, i)\
+    -- Set\
+    res[key] = val\
+    -- Next token\
+    i = next_char(str, i, space_chars, true)\
+    local chr = str:sub(i, i)\
+    i = i + 1\
+    if chr == \"}\" then break end\
+    if chr ~= \",\" then decode_error(str, i, \"expected '}' or ','\") end\
+  end\
+  return res, i\
+end\
+\
+\
+local char_func_map = {\
+  [ '\"' ] = parse_string,\
+  [ \"0\" ] = parse_number,\
+  [ \"1\" ] = parse_number,\
+  [ \"2\" ] = parse_number,\
+  [ \"3\" ] = parse_number,\
+  [ \"4\" ] = parse_number,\
+  [ \"5\" ] = parse_number,\
+  [ \"6\" ] = parse_number,\
+  [ \"7\" ] = parse_number,\
+  [ \"8\" ] = parse_number,\
+  [ \"9\" ] = parse_number,\
+  [ \"-\" ] = parse_number,\
+  [ \"t\" ] = parse_literal,\
+  [ \"f\" ] = parse_literal,\
+  [ \"n\" ] = parse_literal,\
+  [ \"[\" ] = parse_array,\
+  [ \"{\" ] = parse_object,\
+}\
+\
+\
+parse = function(str, idx)\
+  local chr = str:sub(idx, idx)\
+  local f = char_func_map[chr]\
+  if f then\
+    return f(str, idx)\
+  end\
+  decode_error(str, idx, \"unexpected character '\" .. chr .. \"'\")\
+end\
+\
+\
+function json.decode(str)\
+  if type(str) ~= \"string\" then\
+    error(\"expected argument of type string, got \" .. type(str))\
+  end\
+  local res, idx = parse(str, next_char(str, 1, space_chars, true))\
+  idx = next_char(str, idx, space_chars, true)\
+  if idx <= #str then\
+    decode_error(str, idx, \"trailing garbage\")\
+  end\
+  return res\
+end\
+\
+\
+return json","@json.lua")
 end
 do
-package.preload["path"] = load("local path = {}\npath.separator = string.find(package.path, '/') and '/' or '\\\\'\npath.basename = function(thePath)\n  thePath = string.gsub(thePath, '\\\\', '/')\n  thePath = string.gsub(thePath, '//+', '/')\n  local thePathArray = string.split(thePath, '/')\n  local res = table.remove(thePathArray)\n  return res\nend\npath.dirname = function(thePath)\n  thePath = string.gsub(thePath, '\\\\', '/')\n  thePath = string.gsub(thePath, '//+', '/')\n  local thePathArray = string.split(thePath, '/')\n  table.remove(thePathArray)\n  return table.concat(thePathArray, path.separator)\nend\npath.extname = function()\nend\npath.join = function(...)\n  local pathArray = { ... }\n  local resultPathArray = {}\n  for key = 1, #pathArray do\n    if pathArray[key] ~= '' then\n      if type(pathArray[key]) ~= 'string' then\n        error('bad argument #' .. key .. ' to \\'path.join\\' (string expected, got ' .. type(pathArray[key]) .. ')', 2)\n      end\n      local thePath = string.gsub(pathArray[key], '\\\\', '/')\n      thePath = string.gsub(thePath, '//+', '/')\n      local thePathArray = string.split(thePath, '/')\n      for key2 = 1, #thePathArray do\n        local theName = thePathArray[key2]\n        if theName == '' and #resultPathArray > 0 then\n        elseif theName == '.' and #resultPathArray > 0 then\n        elseif theName == '..' and #resultPathArray == 1 and resultPathArray[1] == '' then\n          table.remove(resultPathArray)\n        elseif theName == '..' and #resultPathArray == 1 and resultPathArray[1] == '.' then\n          resultPathArray = { '..' }\n        elseif theName == '..' and #resultPathArray > 0 then\n          table.remove(resultPathArray)\n        else\n          table.insert(resultPathArray, theName)\n        end\n      end\n    end\n  end\n  return table.concat(resultPathArray, path.separator)\nend\npath.relative = function()\nend\npath.resolve = function(...)\n  local pathArray = { ... }\n  local resultPathArray = {}\n  for key = 1, #pathArray do\n    if pathArray[key] ~= '' then\n      local thePath = string.gsub(string.gsub(pathArray[key], '\\\\', '/'), '/$', '')\n      thePath = string.gsub(thePath, '//+', '/')\n      local thePathArray = string.split(thePath, '/')\n      for key2 = 1, #thePathArray do\n        local theName = thePathArray[key2]\n        if theName == '' and key2 == 1 then\n          resultPathArray = { '' }\n        elseif theName == '.' and #resultPathArray > 0 then\n        elseif theName == '..' and #resultPathArray == 1 and resultPathArray[1] == '' then\n          table.remove(resultPathArray)\n        elseif theName == '..' and #resultPathArray == 1 and resultPathArray[1] == '.' then\n          resultPathArray = { '..' }\n        elseif theName == '..' and #resultPathArray > 0 then\n          table.remove(resultPathArray)\n        else\n          table.insert(resultPathArray, theName)\n        end\n      end\n    end\n  end\n  return table.concat(resultPathArray, path.separator)\nend\nreturn path","@path.lua", "bt", _ENV)
+package.preload["path"] = load("local path = {}\
+path.separator = string.find(package.path, '/') and '/' or '\\\\'\
+path.basename = function(thePath)\
+  thePath = string.gsub(thePath, '\\\\', '/')\
+  thePath = string.gsub(thePath, '//+', '/')\
+  local thePathArray = string.split(thePath, '/')\
+  local res = table.remove(thePathArray)\
+  return res\
+end\
+path.dirname = function(thePath)\
+  thePath = string.gsub(thePath, '\\\\', '/')\
+  thePath = string.gsub(thePath, '//+', '/')\
+  local thePathArray = string.split(thePath, '/')\
+  table.remove(thePathArray)\
+  return table.concat(thePathArray, path.separator)\
+end\
+path.extname = function()\
+end\
+path.join = function(...)\
+  local pathArray = { ... }\
+  local resultPathArray = {}\
+  for key = 1, #pathArray do\
+    if pathArray[key] ~= '' then\
+      if type(pathArray[key]) ~= 'string' then\
+        error('bad argument #' .. key .. ' to \\'path.join\\' (string expected, got ' .. type(pathArray[key]) .. ')', 2)\
+      end\
+      local thePath = string.gsub(pathArray[key], '\\\\', '/')\
+      thePath = string.gsub(thePath, '//+', '/')\
+      local thePathArray = string.split(thePath, '/')\
+      for key2 = 1, #thePathArray do\
+        local theName = thePathArray[key2]\
+        if theName == '' and #resultPathArray > 0 then\
+        elseif theName == '.' and #resultPathArray > 0 then\
+        elseif theName == '..' and #resultPathArray == 1 and resultPathArray[1] == '' then\
+          table.remove(resultPathArray)\
+        elseif theName == '..' and #resultPathArray == 1 and resultPathArray[1] == '.' then\
+          resultPathArray = { '..' }\
+        elseif theName == '..' and #resultPathArray > 0 then\
+          table.remove(resultPathArray)\
+        else\
+          table.insert(resultPathArray, theName)\
+        end\
+      end\
+    end\
+  end\
+  return table.concat(resultPathArray, path.separator)\
+end\
+path.relative = function()\
+end\
+path.resolve = function(...)\
+  local pathArray = { ... }\
+  local resultPathArray = {}\
+  for key = 1, #pathArray do\
+    if pathArray[key] ~= '' then\
+      local thePath = string.gsub(string.gsub(pathArray[key], '\\\\', '/'), '/$', '')\
+      thePath = string.gsub(thePath, '//+', '/')\
+      local thePathArray = string.split(thePath, '/')\
+      for key2 = 1, #thePathArray do\
+        local theName = thePathArray[key2]\
+        if theName == '' and key2 == 1 then\
+          resultPathArray = { '' }\
+        elseif theName == '.' and #resultPathArray > 0 then\
+        elseif theName == '..' and #resultPathArray == 1 and resultPathArray[1] == '' then\
+          table.remove(resultPathArray)\
+        elseif theName == '..' and #resultPathArray == 1 and resultPathArray[1] == '.' then\
+          resultPathArray = { '..' }\
+        elseif theName == '..' and #resultPathArray > 0 then\
+          table.remove(resultPathArray)\
+        else\
+          table.insert(resultPathArray, theName)\
+        end\
+      end\
+    end\
+  end\
+  return table.concat(resultPathArray, path.separator)\
+end\
+return path","@path.lua")
 end
 do
-package.preload["console"] = load("local console = console or {}\nlocal __console = {}\nfor key, value in pairs(console) do\n  __console[key] = value\nend\n\n\nlocal getLength = table.length or function(target)\n  local length = 0\n  for k, v in ipairs(target) do\n    length = k\n  end\n  return length\nend\n\nlocal isArray = table.isArray or function(tab)\n  if (type(tab) ~= \"table\") then\n    return false\n  end\n  local length = getLength(tab)\n  for k, v in pairs(tab) do\n    if ((type(k) ~= \"number\") or (k > length)) then\n      return false\n    end\n  end\n  return true\nend\n\n\nlocal function runTable(tab, space)\n  if type(tab) == 'number' then\n    return { tostring(tab) }\n  end\n  if type(tab) == 'string' then\n    if string.len(tab) > 1000 then\n      return { '\"' .. string.sub(tab, 1, 1000) .. '...\"' }\n    end\n    return { '\"' .. tab .. '\"' }\n  end\n  if type(tab) == 'boolean' then\n    if (tab) then\n      return { 'true' }\n    else\n      return { 'false' }\n    end\n  end\n  if type(tab) ~= 'table' then\n    return { '(' .. type(tab) .. ')' }\n  end\n  if type(space) == 'number' then\n    space = string.rep(' ', space)\n  end\n  if type(space) ~= 'string' then\n    space = ''\n  end\n\n  local resultStrList = {}\n  local newTabPairs = {}\n  local newTabPairsKeys = {}\n  local tabIsArray = true\n  local tabLength = 0\n  local hasSubTab = false\n\n  -- 将 table 的数组部分取出\n  for k, v in ipairs(tab) do\n    tabLength = k\n    table.insert(newTabPairs, { k, runTable(v, space) })\n    if (type(v) == 'table') then\n      hasSubTab = true\n    end\n  end\n\n  -- 将 table 的 map 部分取出，并按照字典顺序排序\n  for k, v in pairs(tab) do\n    if type(k) ~= 'number' or k > tabLength or k < 1 then\n      tabIsArray = false\n      table.insert(newTabPairsKeys, k)\n      if (type(v) == 'table') then\n        hasSubTab = true\n      end\n    end\n  end\n\n  table.sort(newTabPairsKeys)\n  for _, k in ipairs(newTabPairsKeys) do\n    table.insert(newTabPairs, { k, runTable(tab[k], space) })\n  end\n\n  if (tabIsArray) then\n    local newTabArr = newTabPairs\n\n    if (hasSubTab) then\n      table.insert(resultStrList, '[')\n      for k, v in ipairs(newTabArr) do\n        local v2Length = getLength(v[2])\n        v[2][v2Length] = v[2][v2Length] .. ','\n        for k2, v2 in ipairs(v[2]) do\n          table.insert(resultStrList, space .. v2)\n        end\n      end\n      table.insert(resultStrList, ']')\n    else\n      local theStr = {}\n      for k, v in ipairs(newTabPairs) do\n        table.insert(theStr, v[2][1])\n      end\n      local childStr = table.concat(theStr, ', ')\n      table.insert(resultStrList, '[' .. childStr .. ']')\n    end\n  else\n    local newTabArr = newTabPairs\n\n    table.insert(resultStrList, '{')\n    for k, v in ipairs(newTabArr) do\n      v[2][1] = v[1] .. ': ' .. v[2][1]\n      local v2Length = getLength(v[2])\n      v[2][v2Length] = v[2][v2Length] .. ','\n      for k2, v2 in ipairs(v[2]) do\n        table.insert(resultStrList, space .. v2 .. '')\n      end\n    end\n    table.insert(resultStrList, '}')\n  end\n  return resultStrList\nend\n\n\n__console.log = __console.log or function(obj)\n  local info = debug.getinfo(2, 'Sl')\n  local lineInfo = ''\n  if info.currentline then\n    lineInfo = info.source .. ': ' .. info.currentline .. ': '\n  end\n  local js = table.concat(runTable(obj, 2), \"\\n\")\n  print(lineInfo .. '\\n' .. js)\n  return js\nend\n\n__console.getJsStr = function(obj)\n  return table.concat(runTable(obj, 2), \",\\n\")\nend\n\n__console.color = function(value)\n  local resultStr = ''\n  local color = getColor(value[1], value[2])\n  local oldColor = value[3]\n  local colorStr = string.format('0x%06x', color)\n  local oldColorStr = string.format('0x%06x', oldColor)\n  value[3] = oldColorStr\n  if (color == oldColor) then\n    resultStr = resultStr .. '\\n' .. table.concat(runTable(value), \"\")\n  else\n    value[3] = colorStr\n    resultStr = resultStr .. '\\n' .. table.concat(runTable(value), \"\") .. '  old Color: ' .. oldColorStr\n  end\n  __console.log(resultStr)\nend\n\nfor key, value in pairs(__console) do\n  console[key] = value\nend\nreturn console","@console.lua", "bt", _ENV)
+package.preload["console"] = load("local console = console or {}\
+local __console = {}\
+for key, value in pairs(console) do\
+  __console[key] = value\
+end\
+\
+\
+local getLength = table.length or function(target)\
+  local length = 0\
+  for k, v in ipairs(target) do\
+    length = k\
+  end\
+  return length\
+end\
+\
+local isArray = table.isArray or function(tab)\
+  if (type(tab) ~= \"table\") then\
+    return false\
+  end\
+  local length = getLength(tab)\
+  for k, v in pairs(tab) do\
+    if ((type(k) ~= \"number\") or (k > length)) then\
+      return false\
+    end\
+  end\
+  return true\
+end\
+\
+\
+local function runTable(tab, space)\
+  if type(tab) == 'number' then\
+    return { tostring(tab) }\
+  end\
+  if type(tab) == 'string' then\
+    if string.len(tab) > 1000 then\
+      return { '\"' .. string.sub(tab, 1, 1000) .. '...\"' }\
+    end\
+    return { '\"' .. tab .. '\"' }\
+  end\
+  if type(tab) == 'boolean' then\
+    if (tab) then\
+      return { 'true' }\
+    else\
+      return { 'false' }\
+    end\
+  end\
+  if type(tab) ~= 'table' then\
+    return { '(' .. type(tab) .. ')' }\
+  end\
+  if type(space) == 'number' then\
+    space = string.rep(' ', space)\
+  end\
+  if type(space) ~= 'string' then\
+    space = ''\
+  end\
+\
+  local resultStrList = {}\
+  local newTabPairs = {}\
+  local newTabPairsKeys = {}\
+  local tabIsArray = true\
+  local tabLength = 0\
+  local hasSubTab = false\
+\
+  -- 将 table 的数组部分取出\
+  for k, v in ipairs(tab) do\
+    tabLength = k\
+    table.insert(newTabPairs, { k, runTable(v, space) })\
+    if (type(v) == 'table') then\
+      hasSubTab = true\
+    end\
+  end\
+\
+  -- 将 table 的 map 部分取出，并按照字典顺序排序\
+  for k, v in pairs(tab) do\
+    if type(k) ~= 'number' or k > tabLength or k < 1 then\
+      tabIsArray = false\
+      table.insert(newTabPairsKeys, k)\
+      if (type(v) == 'table') then\
+        hasSubTab = true\
+      end\
+    end\
+  end\
+\
+  table.sort(newTabPairsKeys)\
+  for _, k in ipairs(newTabPairsKeys) do\
+    table.insert(newTabPairs, { k, runTable(tab[k], space) })\
+  end\
+\
+  if (tabIsArray) then\
+    local newTabArr = newTabPairs\
+\
+    if (hasSubTab) then\
+      table.insert(resultStrList, '[')\
+      for k, v in ipairs(newTabArr) do\
+        local v2Length = getLength(v[2])\
+        v[2][v2Length] = v[2][v2Length] .. ','\
+        for k2, v2 in ipairs(v[2]) do\
+          table.insert(resultStrList, space .. v2)\
+        end\
+      end\
+      table.insert(resultStrList, ']')\
+    else\
+      local theStr = {}\
+      for k, v in ipairs(newTabPairs) do\
+        table.insert(theStr, v[2][1])\
+      end\
+      local childStr = table.concat(theStr, ', ')\
+      table.insert(resultStrList, '[' .. childStr .. ']')\
+    end\
+  else\
+    local newTabArr = newTabPairs\
+\
+    table.insert(resultStrList, '{')\
+    for k, v in ipairs(newTabArr) do\
+      v[2][1] = v[1] .. ': ' .. v[2][1]\
+      local v2Length = getLength(v[2])\
+      v[2][v2Length] = v[2][v2Length] .. ','\
+      for k2, v2 in ipairs(v[2]) do\
+        table.insert(resultStrList, space .. v2 .. '')\
+      end\
+    end\
+    table.insert(resultStrList, '}')\
+  end\
+  return resultStrList\
+end\
+\
+\
+__console.log = __console.log or function(obj)\
+  local info = debug.getinfo(2, 'Sl')\
+  local lineInfo = ''\
+  if info.currentline then\
+    lineInfo = info.source .. ': ' .. info.currentline .. ': '\
+  end\
+  local js = table.concat(runTable(obj, 2), \"\\n\")\
+  print(lineInfo .. '\\n' .. js)\
+  return js\
+end\
+\
+__console.getJsStr = function(obj)\
+  return table.concat(runTable(obj, 2), \",\\n\")\
+end\
+\
+__console.color = function(value)\
+  local resultStr = ''\
+  local color = getColor(value[1], value[2])\
+  local oldColor = value[3]\
+  local colorStr = string.format('0x%06x', color)\
+  local oldColorStr = string.format('0x%06x', oldColor)\
+  value[3] = oldColorStr\
+  if (color == oldColor) then\
+    resultStr = resultStr .. '\\n' .. table.concat(runTable(value), \"\")\
+  else\
+    value[3] = colorStr\
+    resultStr = resultStr .. '\\n' .. table.concat(runTable(value), \"\") .. '  old Color: ' .. oldColorStr\
+  end\
+  __console.log(resultStr)\
+end\
+\
+for key, value in pairs(__console) do\
+  console[key] = value\
+end\
+return console","@console.lua")
 end
 do
-package.preload["commander"] = load("-- 处理输入参数\nrequire 'string-split'\n\nlocal commander = {\n  keys = {},\n  params = {},\n}\n\nlocal optionKey = {}\n\ncommander.option = function(key, defaultValue)\n  key = key or ''\n  if type(key) == 'table' then\n  end\n  local optionObj = {\n    keys = {},\n    key = defaultValue,\n    defaultValue = defaultValue,\n  }\n  local keyArr = key:split(',')\n  for k, v in ipairs(keyArr) do\n    local theK = v:gsub('^%s*(.-)%s*$', '%1'):gsub('^-+', '')\n    optionObj.key = theKey\n    table.insert(optionObj.keys, theK)\n  end\n  for k, v in ipairs(optionObj.keys) do\n    optionKey[v] = optionObj\n  end\n  for k, v in ipairs(optionObj.keys) do\n    table.insert(commander.keys, v)\n  end\n  for k, v in ipairs(optionObj.keys) do\n    if defaultValue ~= nil then\n      commander.params[v] = defaultValue\n    end\n  end\n  return commander\nend\n\ncommander.parse = function(params)\n  params = params or {}\n  local i = 1\n  local paramsLength = #params\n  while i <= paramsLength do\n    if type(params[i]) == 'string' then\n      local theKey = params[i]:gsub('^%s*(.-)%s*$', '%1'):gsub('^-+', '')\n      if params[i]:gmatch('^-') and optionKey[theKey] then\n        local optionObj = optionKey[theKey]\n        local theParam = params[i + 1] ~= nil and params[i + 1] or true\n        for k, v in ipairs(optionObj.keys) do\n          commander.params[v] = theParam\n        end\n        i = i + 1\n      end\n    end\n    i = i + 1\n  end\n  return commander\nend\n\nreturn commander","@commander.lua", "bt", _ENV)
+package.preload["commander"] = load("-- 处理输入参数\
+require 'string-split'\
+\
+local commander = {\
+  keys = {},\
+  params = {},\
+}\
+\
+local optionKey = {}\
+\
+commander.option = function(key, defaultValue)\
+  key = key or ''\
+  if type(key) == 'table' then\
+  end\
+  local optionObj = {\
+    keys = {},\
+    key = defaultValue,\
+    defaultValue = defaultValue,\
+  }\
+  local keyArr = key:split(',')\
+  for k, v in ipairs(keyArr) do\
+    local theK = v:gsub('^%s*(.-)%s*$', '%1'):gsub('^-+', '')\
+    optionObj.key = theKey\
+    table.insert(optionObj.keys, theK)\
+  end\
+  for k, v in ipairs(optionObj.keys) do\
+    optionKey[v] = optionObj\
+  end\
+  for k, v in ipairs(optionObj.keys) do\
+    table.insert(commander.keys, v)\
+  end\
+  for k, v in ipairs(optionObj.keys) do\
+    if defaultValue ~= nil then\
+      commander.params[v] = defaultValue\
+    end\
+  end\
+  return commander\
+end\
+\
+commander.parse = function(params)\
+  params = params or {}\
+  local i = 1\
+  local paramsLength = #params\
+  while i <= paramsLength do\
+    if type(params[i]) == 'string' then\
+      local theKey = params[i]:gsub('^%s*(.-)%s*$', '%1'):gsub('^-+', '')\
+      if params[i]:gmatch('^-') and optionKey[theKey] then\
+        local optionObj = optionKey[theKey]\
+        local theParam = params[i + 1] ~= nil and params[i + 1] or true\
+        for k, v in ipairs(optionObj.keys) do\
+          commander.params[v] = theParam\
+        end\
+        i = i + 1\
+      end\
+    end\
+    i = i + 1\
+  end\
+  return commander\
+end\
+\
+return commander","@commander.lua")
 end
 
 require("index")

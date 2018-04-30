@@ -48,7 +48,7 @@ preloadList[program.params.entry] = program.params.entry
 
 while #preloadList > 0 do
   local preloadPath = preloadList[1]
-  local preloadPathName = preloadPath:gsub('.lua$', '')
+  local preloadPathName = preloadPath:gsub('%.lua$', '')
   table.remove(preloadList, 1)
   local entryFile, err = io.open(preloadPath, 'r')
   if not err then
@@ -57,25 +57,34 @@ while #preloadList > 0 do
     local requireSource = table.concat(requireTable, '\n')
     if program.params['source-code-mode'] then
       if type(program.params['source-code-mode']) == 'string' then
-        requireSource = 'do\npackage[' .. json.encode(program['source-code-mode']) .. ']["' .. preloadPathName .. '"] = { path = "' .. preloadPath .. '", source = ' .. json.encode(requireSource) .. ' }' .. '\nend'
+        requireSource = 'do\npackage[' .. json.encode(program['source-code-mode']) .. '][' .. json.encode(preloadPath) .. '] = { path = ' .. json.encode(preloadPath) .. ', source = ' .. ('%q'):format(requireSource) .. ' }' .. '\nend'
       else
-        requireSource = 'do\npackage.sourceCode["' .. preloadPathName .. '"] = { path = "' .. preloadPath .. '", source = ' .. json.encode(requireSource) .. ' }' .. '\nend'
+        requireSource = 'do\npackage.sourceCode[' .. json.encode(preloadPath) .. '] = { path = ' .. json.encode(preloadPath) .. ', source = ' .. ('%q'):format(requireSource) .. ' }' .. '\nend'
       end
     else
-      requireSource = 'do\npackage.preload["' .. preloadPathName .. '"] = load(' .. json.encode(requireSource) .. ',"@' .. preloadPath .. '", "bt", _ENV)' .. '\nend'
+      requireSource = 'do\npackage.preload["' .. preloadPathName .. '"] = load(' .. ('%q'):format(requireSource) .. ',"@' .. preloadPath .. '")' .. '\nend'
     end
     table.insert(loadedList, requireSource)
 
+    local dirName = path.dirname(preloadPathName)
     -- 寻找文件require的内容
     for k, v in ipairs(requireTable) do
-      for value in v:gmatch('require%s*%(?["\']([%w-_./\\]+)["\']%)?') do
+      for value in v:gmatch('require%s*%(?["\']([%w-_%./\\]+)["\']%)?') do
         local subRequirePath = value
-        if not value:match('.lua$') then
+        if not value:match('%.lua$') then
           subRequirePath = subRequirePath .. '.lua'
         end
-        if not preloadList[subRequirePath] then
-          table.insert(preloadList, subRequirePath)
-          preloadList[subRequirePath] = subRequirePath
+        if subRequirePath:match('^%.%/') or subRequirePath:match('^%.%.%/') or subRequirePath:match('^%/') then
+          local subRequireAbsolutePath = path.resolve(dirName, subRequirePath)
+          if not preloadList[subRequireAbsolutePath] then
+            table.insert(preloadList, subRequireAbsolutePath)
+            preloadList[subRequireAbsolutePath] = subRequireAbsolutePath
+          end
+        else
+          if not preloadList[subRequirePath] then
+            table.insert(preloadList, subRequirePath)
+            preloadList[subRequirePath] = subRequirePath
+          end
         end
       end
     end
@@ -108,5 +117,5 @@ for k, v in ipairs(loadedList) do
   outputFile:write(v)
   outputFile:write('\n')
 end
-outputFile:write('\nrequire("' .. program.params.entry:gsub('.lua$', '') .. '")\n')
+outputFile:write('\nrequire("' .. program.params.entry:gsub('%.lua$', '') .. '")\n')
 outputFile:close()

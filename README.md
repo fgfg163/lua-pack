@@ -1,6 +1,6 @@
 # lua-pack
 
-lua-pack is a module bundler for lua.
+lua-pack is a module bundler for lua 5.2.
 
 run
 ```
