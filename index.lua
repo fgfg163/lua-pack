@@ -1,5 +1,4 @@
 require 'string-split'
-local json = require 'json'
 local path = require 'path'
 console = require 'console'
 local program = require 'commander'
@@ -122,9 +121,9 @@ while #preloadList > 0 do
     local codeSource, is_bin = readluafile(preloadObj.path)
     local requireSource = ''
     if preloadObj.path:match('^%./') or preloadObj.path:match('^%.%./') or preloadObj.path:match('^/') then
-      requireSource = '\npackage.sourceCode = package.sourceCode or {}\npackage.sourceCode[' .. json.encode(preloadObj.name) .. '] = { path = ' .. json.encode(preloadObj.path) .. ', name = ' .. json.encode(preloadObj.name) .. ', source = ' .. qformat(codeSource) .. ' }' .. '\n'
+      requireSource = '\npackage.sourceCode = package.sourceCode or {}\npackage.sourceCode[' .. qformat(preloadObj.name) .. '] = { path = ' .. qformat(preloadObj.path) .. ', name = ' .. qformat(preloadObj.name) .. ', source = ' .. qformat(codeSource) .. ' }' .. '\n'
     else
-      requireSource = '\npackage.preload["' .. preloadObj.name .. '"] = assert(load(' .. qformat(codeSource) .. ', "@" ..' .. json.encode(preloadObj.path) .. '))' .. '\n'
+      requireSource = '\npackage.preload["' .. preloadObj.name .. '"] = assert(load(' .. qformat(codeSource) .. ', "@" ..' .. qformat(preloadObj.path) .. '))' .. '\n'
     end
     preloadObj.sourceCode = requireSource
     table.insert(loadedList, preloadObj.sourceCode)
